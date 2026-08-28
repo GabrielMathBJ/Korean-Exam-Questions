@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Edit3, Sparkles, RefreshCw, Plus, Trash2, Check, Save, AlertCircle, ArrowUp, ArrowDown, HelpCircle } from 'lucide-react';
 import { GeneratedExamData, GeneratedQuestion, QuestionConfig, QuestionStyle, BehavioralDomain } from '../types';
+import { safeFetchJson } from '../utils/imageOptimizer';
 
 interface TeacherEditorViewProps {
   examData: GeneratedExamData;
@@ -67,7 +68,7 @@ export const TeacherEditorView: React.FC<TeacherEditorViewProps> = ({
     const targetQ = examData.questions[regenModalIndex];
 
     try {
-      const response = await fetch('/api/gemini/regenerate-single-question', {
+      const result = await safeFetchJson<GeneratedQuestion>('/api/gemini/regenerate-single-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -84,7 +85,6 @@ export const TeacherEditorView: React.FC<TeacherEditorViewProps> = ({
         }),
       });
 
-      const result = await response.json();
       if (result.success && result.data) {
         const newQ: GeneratedQuestion = {
           ...result.data,

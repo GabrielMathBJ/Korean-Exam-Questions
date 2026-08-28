@@ -1,9 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Initialize PDF.js worker using official CDN matching installed version
-if (typeof window !== 'undefined' && 'GlobalWorkerOptions' in pdfjsLib) {
+if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
   try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version || '4.10.38'}/pdf.worker.min.mjs`;
+    const version = pdfjsLib.version || '4.10.38';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
   } catch (err) {
     console.warn('Failed to set pdfjs worker from CDN', err);
   }
@@ -52,7 +53,7 @@ export async function processPdfFile(
 
     const page = await pdf.getPage(pageNum);
     
-    // 1. Extract text content
+    // 1. Extract digital text content if embedded
     let pageText = '';
     try {
       const textContent = await page.getTextContent();
@@ -68,35 +69,38 @@ export async function processPdfFile(
       textChunks.push(pageText);
     }
 
-    // 2. Render to canvas for visual preview and high-res image OCR
+    // 2. Render to canvas for visual preview and high-clarity OCR
     let imageBase64 = '';
     let viewportWidth = 800;
     let viewportHeight = 1100;
 
     try {
-      // Scale 1.5 gives clear readability for OCR while keeping payload moderate
-      const viewport = page.getViewport({ scale: 1.5 });
-      viewportWidth = viewport.width;
-      viewportHeight = viewport.height;
+      // Calculate scale to limit max dimension to 1400px for optimal speed and payload size
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      const maxDim = Math.max(unscaledViewport.width, unscaledViewport.height);
+      const targetScale = maxDim > 0 ? Math.min(1.5, 1400 / maxDim) : 1.2;
+      
+      const viewport = page.getViewport({ scale: targetScale });
+      viewportWidth = Math.round(viewport.width);
+      viewportHeight = Math.round(viewport.height);
 
       const canvas = document.createElement('canvas');
-      canvas.width = Math.round(viewport.width);
-      canvas.height = Math.round(viewport.height);
+      canvas.width = viewportWidth;
+      canvas.height = viewportHeight;
       const context = canvas.getContext('2d', { willReadFrequently: true });
 
       if (context) {
-        // Fill white background before rendering
+        // Fill clean white background before rendering
         context.fillStyle = '#ffffff';
         context.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Note: pdfjs v4/v6 RenderParameters includes canvas & canvasContext
         const renderContext = {
           canvasContext: context,
           viewport,
-          canvas,
         };
-        await page.render(renderContext).promise;
-        imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        await (page.render(renderContext as any).promise);
+        // Export as lightweight compressed JPEG (quality 0.80)
+        imageBase64 = canvas.toDataURL('image/jpeg', 0.8);
       }
     } catch (renderErr) {
       console.warn(`Failed to render canvas for page ${pageNum}`, renderErr);

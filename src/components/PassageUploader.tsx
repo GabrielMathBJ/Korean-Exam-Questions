@@ -18,6 +18,7 @@ import {
 import { SAMPLE_PASSAGES } from '../data/samplePassages';
 import { SamplePassage } from '../types';
 import { processPdfFile, ProcessedPdf } from '../utils/pdfProcessor';
+import { optimizeImageBase64, safeFetchJson } from '../utils/imageOptimizer';
 
 interface PassageUploaderProps {
   passageText: string;
@@ -113,7 +114,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
           setPdfProgress(null);
         }
       } else {
-        // Normal image file
+        // Normal image file with auto-optimization to prevent payload blowup
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve, reject) => {
           reader.onload = () => resolve(reader.result as string);
@@ -122,12 +123,15 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
         reader.readAsDataURL(file);
 
         try {
-          const base64Data = await base64Promise;
+          const rawBase64 = await base64Promise;
+          // Downscale and compress image for fast OCR
+          const optimizedBase64 = await optimizeImageBase64(rawBase64, 1600, 2200, 0.82);
+          
           newUploadedItems.push({
             name: file.name,
-            mimeType: file.type || 'image/jpeg',
-            base64: base64Data,
-            previewUrl: base64Data,
+            mimeType: 'image/jpeg',
+            base64: optimizedBase64,
+            previewUrl: optimizedBase64,
           });
         } catch (imgErr) {
           console.error('Image load error:', imgErr);
@@ -156,16 +160,28 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
     setExtractError(null);
 
     try {
-      const response = await fetch('/api/gemini/extract-passage', {
+      // Send max 6 pages per OCR batch to prevent body-size overflow and timeouts
+      const targetImages = uploadedImages.slice(0, 6);
+      
+      const payload = {
+        images: targetImages.map((img) => ({ mimeType: img.mimeType, base64: img.base64 })),
+        textHint: [
+          passageTitle || (lastProcessedPdf ? lastProcessedPdf.fileName : ''),
+          lastProcessedPdf?.hasTextLayer ? lastProcessedPdf.fullExtractedText.slice(0, 1000) : '',
+        ].filter(Boolean).join(' | '),
+      };
+
+      const result = await safeFetchJson<{
+        title?: string;
+        category?: string;
+        subcategory?: string;
+        extractedText?: string;
+      }>('/api/gemini/extract-passage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          images: uploadedImages.map((img) => ({ mimeType: img.mimeType, base64: img.base64 })),
-          textHint: passageTitle || (lastProcessedPdf ? lastProcessedPdf.fileName : ''),
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const result = await response.json();
       if (result.success && result.data) {
         if (result.data.title && (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문')) {
           setPassageTitle(result.data.title);

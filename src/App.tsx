@@ -10,6 +10,7 @@ import { PassageAnalysisCard } from './components/PassageAnalysisCard';
 import { PrivacyModal } from './components/PrivacyModal';
 import { SAMPLE_PASSAGES } from './data/samplePassages';
 import { GeneratedExamData, QuestionConfig, SamplePassage } from './types';
+import { safeFetchJson } from './utils/imageOptimizer';
 
 // Default initial question configs
 const DEFAULT_CONFIGS: QuestionConfig[] = [
@@ -91,7 +92,7 @@ export default function App() {
     setGenerationError(null);
 
     try {
-      const response = await fetch('/api/gemini/generate-exam', {
+      const response = await safeFetchJson<GeneratedExamData>('/api/gemini/generate-exam', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,13 +104,11 @@ export default function App() {
         }),
       });
 
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        setExamData(result.data);
+      if (response.success && response.data) {
+        setExamData(response.data);
         setActiveTab('paper'); // Jump to CSAT exam paper
       } else {
-        setGenerationError(result.error || '문항 생성 중 오류가 발생했습니다.');
+        setGenerationError(response.error || '문항 생성 중 오류가 발생했습니다.');
       }
     } catch (err: any) {
       setGenerationError(err.message || '네트워크 통신 중 오류가 발생했습니다.');
