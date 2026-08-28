@@ -119,9 +119,10 @@ async function generateContentWithRetry(
   const modelCandidates = [
     primaryModel,
     "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-2.5-pro",
+    "gemini-3.7-flash",
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-pro-preview",
   ].filter((v, i, a) => a.indexOf(v) === i); // unique
 
   let lastError: any = null;
@@ -355,6 +356,28 @@ app.get("/terms", (req, res) => {
 </html>`);
 });
 
+// API: Test Gemini API Key connectivity
+app.post(["/api/gemini/test-key", "/gemini/test-key"], async (req, res) => {
+  try {
+    const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
+    const ai = getAI(customApiKey);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: "ping",
+    });
+
+    if (response && response.text) {
+      res.json({ success: true, model: "gemini-2.5-flash", message: "API 키가 정상적으로 인증되었습니다." });
+    } else {
+      res.json({ success: true, model: "gemini-2.5-flash" });
+    }
+  } catch (error: any) {
+    console.error("API Key test error:", error);
+    res.status(400).json({ success: false, error: error.message || "유효하지 않은 API 키이거나 권한이 없습니다." });
+  }
+});
+
 // API: Extract/OCR passage from multimodal images/PDF
 app.post(["/api/gemini/extract-passage", "/gemini/extract-passage"], async (req, res) => {
   try {
@@ -395,7 +418,7 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
 
     const response = await generateContentWithRetry(ai, {
       preferredModel: "gemini-2.5-flash",
-      contents: { parts },
+      contents: [{ role: "user", parts }],
       config: {
         systemInstruction: "당신은 한국 수능 국어영역 지문 전문 디지털화 및 OCR 전문가입니다.",
         responseMimeType: "application/json",
@@ -412,10 +435,21 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
       summary: "",
     });
 
+    // If JSON parsing yielded empty text but output has text, salvage it
+    if (!parsed.extractedText && outputText && outputText.length > 30) {
+      parsed.extractedText = outputText
+        .replace(/```(?:json)?/gi, '')
+        .replace(/```/g, '')
+        .trim();
+    }
+
     res.json({ success: true, data: parsed });
   } catch (error: any) {
     console.error("Passage extraction error:", error);
-    res.status(500).json({ success: false, error: error.message || "지문 추출 중 오류가 발생했습니다." });
+    res.status(200).json({ 
+      success: false, 
+      error: error.message || "지문 OCR 추출 중 오류가 발생했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키를 등록해 보시거나 다시 시도해 주세요." 
+    });
   }
 });
 

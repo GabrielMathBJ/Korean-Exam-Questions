@@ -339,7 +339,9 @@ export default function App() {
       {/* API Key Modal */}
       <ApiKeyModal
         isOpen={isApiKeyModalOpen}
+        apiKey={customApiKey}
         onClose={() => setIsApiKeyModalOpen(false)}
+        onSaveApiKey={(key) => setCustomApiKey(key)}
         onSave={(key) => setCustomApiKey(key)}
       />
     </div>
