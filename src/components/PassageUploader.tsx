@@ -19,6 +19,7 @@ import { SAMPLE_PASSAGES } from '../data/samplePassages';
 import { SamplePassage } from '../types';
 import { processPdfFile, ProcessedPdf } from '../utils/pdfProcessor';
 import { optimizeImageBase64, safeFetchJson } from '../utils/imageOptimizer';
+import { performBrowserOcr } from '../utils/browserOcr';
 
 interface PassageUploaderProps {
   passageText: string;
@@ -58,6 +59,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
   const [pdfProgress, setPdfProgress] = useState<{ current: number; total: number; status: string } | null>(null);
   const [lastProcessedPdf, setLastProcessedPdf] = useState<ProcessedPdf | null>(null);
   const [isExtractingOcr, setIsExtractingOcr] = useState(false);
+  const [ocrStatusMessage, setOcrStatusMessage] = useState<string>('');
   const [extractError, setExtractError] = useState<string | null>(null);
   const [previewModalImg, setPreviewModalImg] = useState<{ url: string; title: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -153,7 +155,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
     setUploadedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // OCR Passage extraction via Gemini AI
+  // OCR Passage extraction via Gemini AI with Browser OCR Failover
   const handleExtractTextWithOCR = async () => {
     if (uploadedImages.length === 0) {
       alert('추출할 이미지 또는 PDF 파일을 먼저 업로드해 주세요.');
@@ -162,6 +164,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
 
     setIsExtractingOcr(true);
     setExtractError(null);
+    setOcrStatusMessage('AI 모델로 지문 텍스트 분석 중...');
 
     try {
       // Send max 6 pages per OCR batch to prevent body-size overflow and timeouts
@@ -186,42 +189,73 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
         body: JSON.stringify(payload),
       });
 
-      if (result.success && result.data) {
+      if (result.success && result.data && result.data.extractedText && result.data.extractedText.trim().length > 10) {
         if (result.data.title && (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문')) {
           setPassageTitle(result.data.title);
         }
         if (result.data.category) setPassageCategory(result.data.category);
         if (result.data.subcategory) setPassageSubcategory(result.data.subcategory);
-        if (result.data.extractedText) {
-          setPassageText(result.data.extractedText);
-        }
+        setPassageText(result.data.extractedText);
         setActiveInputMode('text');
-      } else {
-        // Fallback if PDF text layer exists
-        if (lastProcessedPdf?.hasTextLayer && lastProcessedPdf.fullExtractedText.trim().length > 30) {
-          setPassageText(lastProcessedPdf.fullExtractedText);
-          if (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문') {
-            setPassageTitle(lastProcessedPdf.fileName.replace(/\.pdf$/i, ''));
-          }
-          setActiveInputMode('text');
-          setExtractError('PDF 문서 내부의 디지털 텍스트를 직접 추출하여 적용했습니다.');
-        } else {
-          setExtractError(result.error || '텍스트 추출에 실패했습니다. 파일 형식이나 배포 서버 상태를 확인해 주세요.');
-        }
+        return;
       }
-    } catch (err: any) {
+
+      // Step 2 Fallback: Check if PDF text layer exists
       if (lastProcessedPdf?.hasTextLayer && lastProcessedPdf.fullExtractedText.trim().length > 30) {
         setPassageText(lastProcessedPdf.fullExtractedText);
         if (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문') {
           setPassageTitle(lastProcessedPdf.fileName.replace(/\.pdf$/i, ''));
         }
         setActiveInputMode('text');
-        setExtractError('PDF 문서 내부의 디지털 텍스트를 직접 추출하여 적용했습니다.');
+        return;
+      }
+
+      // Step 3 Fallback: Run high-accuracy in-browser OCR directly on the images
+      setOcrStatusMessage('로컬 브라우저 OCR 엔진으로 텍스트 정밀 추출 중...');
+      const ocrResults: string[] = [];
+
+      for (let i = 0; i < targetImages.length; i++) {
+        setOcrStatusMessage(`로컬 OCR 분석 중 (${i + 1}/${targetImages.length} 페이지)...`);
+        const text = await performBrowserOcr(targetImages[i].base64);
+        if (text && text.trim().length > 0) {
+          ocrResults.push(text.trim());
+        }
+      }
+
+      const combinedText = ocrResults.join('\n\n');
+      if (combinedText.length > 20) {
+        setPassageText(combinedText);
+        if (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문') {
+          const defaultName = targetImages[0]?.name?.replace(/\.[^/.]+$/, '') || '추출된 국어 지문';
+          setPassageTitle(defaultName);
+        }
+        setActiveInputMode('text');
       } else {
-        setExtractError(err.message || '네트워크 오류가 발생했습니다.');
+        setExtractError(result.error || '이미지에서 텍스트를 추출하지 못했습니다. 상단 [API 키 설정]에서 개인 API 키를 등록하거나 지문을 직접 입력해 주세요.');
+      }
+    } catch (err: any) {
+      console.warn('OCR error, attempting direct browser OCR:', err);
+      try {
+        const targetImages = uploadedImages.slice(0, 4);
+        setOcrStatusMessage('로컬 브라우저 OCR 엔진으로 전환하여 추출 중...');
+        const ocrResults: string[] = [];
+        for (const img of targetImages) {
+          const t = await performBrowserOcr(img.base64);
+          if (t) ocrResults.push(t);
+        }
+        const text = ocrResults.join('\n\n');
+        if (text.length > 20) {
+          setPassageText(text);
+          setActiveInputMode('text');
+        } else {
+          setExtractError(err.message || '텍스트 추출 중 오류가 발생했습니다.');
+        }
+      } catch (browserErr: any) {
+        setExtractError(browserErr.message || '네트워크 오류가 발생했습니다.');
       }
     } finally {
       setIsExtractingOcr(false);
+      setOcrStatusMessage('');
     }
   };
 
@@ -490,7 +524,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
                       {isExtractingOcr ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>AI 지문 텍스트 추출 중...</span>
+                          <span>{ocrStatusMessage || 'AI 지문 텍스트 추출 중...'}</span>
                         </>
                       ) : (
                         <>
@@ -512,6 +546,13 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
                   </div>
                 </div>
 
+                {isExtractingOcr && (
+                  <div className="p-3 bg-indigo-50/90 border border-indigo-200 rounded-lg text-xs font-semibold text-indigo-900 flex items-center gap-2 animate-pulse">
+                    <RefreshCw className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
+                    <span>{ocrStatusMessage || '이미지 분석 및 한국어 수능 지문 텍스트를 디지털 변환 중입니다...'}</span>
+                  </div>
+                )}
+
                 {extractError && (
                   <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center space-x-2">
@@ -522,7 +563,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
                       <button
                         type="button"
                         onClick={onOpenApiKeyModal}
-                        className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition shadow-2xs"
+                        className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition shadow-2xs cursor-pointer"
                       >
                         🔑 개인 API 키 입력하기
                       </button>

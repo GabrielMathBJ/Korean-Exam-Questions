@@ -66,15 +66,15 @@ export async function optimizeImageBase64(
 }
 
 /**
- * Robust fetch helper that guards against HTML error pages (e.g., 413, 502, 504)
- * and provides clear error messages instead of JSON parse failures.
+ * Robust fetch helper that guards against HTML error pages (e.g., 404, 413, 502, 504)
+ * and automatically tries path aliases on Vercel / serverless deployments.
  * Also injects user-configured Gemini API Key if available.
  */
 export async function safeFetchJson<T = any>(
   url: string,
   options: RequestInit
 ): Promise<{ success: boolean; data?: T; error?: string }> {
-  try {
+  const tryFetch = async (targetUrl: string) => {
     const customKey = typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') : null;
     
     // Inject headers
@@ -91,7 +91,34 @@ export async function safeFetchJson<T = any>(
       headers,
     };
 
-    const response = await fetch(url, modifiedOptions);
+    const response = await fetch(targetUrl, modifiedOptions);
+    return response;
+  };
+
+  try {
+    let response = await tryFetch(url);
+
+    // If 404, try alternative route aliases on Vercel
+    if (response.status === 404) {
+      const alternativeUrls = [
+        url.replace(/^\/api\/gemini\//, '/gemini/'),
+        url.replace(/^\/api\/gemini\//, '/api/'),
+        url.replace(/^\/api\//, '/'),
+      ].filter((u) => u !== url);
+
+      for (const altUrl of alternativeUrls) {
+        try {
+          const altResponse = await tryFetch(altUrl);
+          if (altResponse.status !== 404) {
+            response = altResponse;
+            break;
+          }
+        } catch {
+          // continue
+        }
+      }
+    }
+
     const contentType = response.headers.get('content-type') || '';
 
     if (!contentType.includes('application/json')) {
@@ -104,8 +131,9 @@ export async function safeFetchJson<T = any>(
         errorSummary = 'AI 처리 시간이 초과되었습니다. 지문 분량을 줄이거나 다시 시도해 주세요.';
       } else if (response.status === 500) {
         errorSummary = '서버 내부 오류(500)가 발생했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키를 입력해 보시거나 잠시 후 다시 시도해 주세요.';
+      } else if (response.status === 404) {
+        errorSummary = 'API 엔드포인트를 찾을 수 없습니다 (404). Vercel 환경설정 또는 서버 배포 상태를 확인해 주세요.';
       } else if (rawText) {
-        // Strip HTML tags if any
         const cleanText = rawText.replace(/<[^>]*>?/gm, '').trim().slice(0, 150);
         if (cleanText) {
           errorSummary = `서버 오류 (${response.status}): ${cleanText}`;

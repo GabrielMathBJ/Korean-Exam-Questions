@@ -27,6 +27,18 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+// URL normalization middleware for Vercel Serverless Function rewrites
+app.use((req, res, next) => {
+  if (req.url.startsWith("/api/index.ts")) {
+    req.url = req.url.replace(/^\/api\/index\.ts/, "") || "/";
+  }
+  // Strip trailing query params if formatted improperly
+  if (req.url.startsWith("/api/index?")) {
+    req.url = req.url.replace(/^\/api\/index\?/, "/?") || "/";
+  }
+  next();
+});
+
 // Lazy getter for Google GenAI client
 let defaultAiClient: GoogleGenAI | null = null;
 
@@ -357,7 +369,7 @@ app.get("/terms", (req, res) => {
 });
 
 // API: Test Gemini API Key connectivity
-app.post(["/api/gemini/test-key", "/gemini/test-key"], async (req, res) => {
+app.post(["/api/gemini/test-key", "/gemini/test-key", "/api/test-key", "/test-key"], async (req, res) => {
   try {
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
     const ai = getAI(customApiKey);
@@ -379,7 +391,7 @@ app.post(["/api/gemini/test-key", "/gemini/test-key"], async (req, res) => {
 });
 
 // API: Extract/OCR passage from multimodal images/PDF
-app.post(["/api/gemini/extract-passage", "/gemini/extract-passage"], async (req, res) => {
+app.post(["/api/gemini/extract-passage", "/gemini/extract-passage", "/api/extract-passage", "/extract-passage"], async (req, res) => {
   try {
     const { images, textHint } = req.body;
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
@@ -418,15 +430,15 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
 
     const response = await generateContentWithRetry(ai, {
       preferredModel: "gemini-2.5-flash",
-      contents: [{ role: "user", parts }],
+      contents: { parts },
       config: {
         systemInstruction: "당신은 한국 수능 국어영역 지문 전문 디지털화 및 OCR 전문가입니다.",
         responseMimeType: "application/json",
-        temperature: 0.2,
+        temperature: 0.1,
       },
     });
 
-    const outputText = response.text || "{}";
+    const outputText = response?.text || "{}";
     const parsed = safeJsonParse(outputText, {
       title: textHint || "수능 국어 지문",
       category: "독서",
@@ -454,7 +466,7 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
 });
 
 // API: Generate KICE CSAT Question Set
-app.post(["/api/gemini/generate-exam", "/gemini/generate-exam"], async (req, res) => {
+app.post(["/api/gemini/generate-exam", "/gemini/generate-exam", "/api/generate-exam", "/generate-exam"], async (req, res) => {
   try {
     const { passageText, images, passageCategory, questionConfigs, customInstructions } = req.body;
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
@@ -661,7 +673,7 @@ ${configDescriptions}
 });
 
 // API: Regenerate or refine a single question
-app.post(["/api/gemini/regenerate-single-question", "/gemini/regenerate-single-question"], async (req, res) => {
+app.post(["/api/gemini/regenerate-single-question", "/gemini/regenerate-single-question", "/api/regenerate-single-question", "/regenerate-single-question"], async (req, res) => {
   try {
     const { passageText, questionIndex, existingQuestion, userFeedback, questionConfig } = req.body;
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
@@ -765,7 +777,13 @@ app.get(["/api/health", "/health"], (req, res) => {
 
 // Vite middleware setup
 async function startServer() {
-  if (process.env.VERCEL) {
+  if (
+    process.env.VERCEL ||
+    process.env.NOW_REGION ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NETLIFY ||
+    process.env.VERCEL_ENV
+  ) {
     return;
   }
 
