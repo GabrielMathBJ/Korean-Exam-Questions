@@ -193,10 +193,29 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
         }
         setActiveInputMode('text');
       } else {
-        setExtractError(result.error || '텍스트 추출에 실패했습니다.');
+        // Fallback if PDF text layer exists
+        if (lastProcessedPdf?.hasTextLayer && lastProcessedPdf.fullExtractedText.trim().length > 30) {
+          setPassageText(lastProcessedPdf.fullExtractedText);
+          if (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문') {
+            setPassageTitle(lastProcessedPdf.fileName.replace(/\.pdf$/i, ''));
+          }
+          setActiveInputMode('text');
+          setExtractError('PDF 문서 내부의 디지털 텍스트를 직접 추출하여 적용했습니다.');
+        } else {
+          setExtractError(result.error || '텍스트 추출에 실패했습니다. 파일 형식이나 배포 서버 상태를 확인해 주세요.');
+        }
       }
     } catch (err: any) {
-      setExtractError(err.message || '네트워크 오류가 발생했습니다.');
+      if (lastProcessedPdf?.hasTextLayer && lastProcessedPdf.fullExtractedText.trim().length > 30) {
+        setPassageText(lastProcessedPdf.fullExtractedText);
+        if (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문') {
+          setPassageTitle(lastProcessedPdf.fileName.replace(/\.pdf$/i, ''));
+        }
+        setActiveInputMode('text');
+        setExtractError('PDF 문서 내부의 디지털 텍스트를 직접 추출하여 적용했습니다.');
+      } else {
+        setExtractError(err.message || '네트워크 오류가 발생했습니다.');
+      }
     } finally {
       setIsExtractingOcr(false);
     }
