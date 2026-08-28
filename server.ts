@@ -669,7 +669,7 @@ ${configDescriptions}
     res.json({ success: true, data: parsedData });
   } catch (error: any) {
     console.error("Exam generation error:", error);
-    res.status(500).json({ success: false, error: error.message || "문항 출제 중 오류가 발생했습니다." });
+    res.status(200).json({ success: false, error: error.message || "문항 출제 중 오류가 발생했습니다." });
   }
 });
 
@@ -767,7 +767,7 @@ ${userFeedback || "평가원 기출 난이도에 맞춰 선지의 매력도를 �
     res.json({ success: true, data: parsedQuestion });
   } catch (error: any) {
     console.error("Single question regeneration error:", error);
-    res.status(500).json({ success: false, error: error.message || "문항 재출제 중 오류가 발생했습니다." });
+    res.status(200).json({ success: false, error: error.message || "문항 재출제 중 오류가 발생했습니다." });
   }
 });
 

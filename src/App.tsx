@@ -12,6 +12,7 @@ import { ApiKeyModal } from './components/ApiKeyModal';
 import { SAMPLE_PASSAGES } from './data/samplePassages';
 import { GeneratedExamData, QuestionConfig, SamplePassage } from './types';
 import { safeFetchJson } from './utils/imageOptimizer';
+import { generateExamDirect } from './utils/directGemini';
 
 // Default initial question configs
 const DEFAULT_CONFIGS: QuestionConfig[] = [
@@ -124,6 +125,8 @@ export default function App() {
     setIsGenerating(true);
     setGenerationError(null);
 
+    const storedKey = (typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') : null) || customApiKey;
+
     try {
       const response = await safeFetchJson<GeneratedExamData>('/api/gemini/generate-exam', {
         method: 'POST',
@@ -140,10 +143,53 @@ export default function App() {
       if (response.success && response.data) {
         setExamData(response.data);
         setActiveTab('paper'); // Jump to CSAT exam paper
-      } else {
-        setGenerationError(response.error || '문항 생성 중 오류가 발생했습니다.');
+        return;
       }
+
+      // If server failed, try client-side direct fallback if key is available
+      if (storedKey && storedKey.trim() && passageText.trim()) {
+        console.warn('Backend exam generation failed, attempting direct Gemini client call...', response.error);
+        try {
+          const directData = await generateExamDirect({
+            apiKey: storedKey.trim(),
+            passageText,
+            passageCategory: `${passageCategory} - ${passageSubcategory}`,
+            questionConfigs,
+            customInstructions,
+          });
+
+          if (directData && directData.questions) {
+            setExamData(directData);
+            setActiveTab('paper');
+            return;
+          }
+        } catch (directErr: any) {
+          console.error('Direct fallback also failed:', directErr);
+        }
+      }
+
+      setGenerationError(response.error || '문항 생성 중 오류가 발생했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키(AIzaSy...)를 등록해 주세요.');
     } catch (err: any) {
+      // Direct fallback on network exception
+      if (storedKey && storedKey.trim() && passageText.trim()) {
+        try {
+          const directData = await generateExamDirect({
+            apiKey: storedKey.trim(),
+            passageText,
+            passageCategory: `${passageCategory} - ${passageSubcategory}`,
+            questionConfigs,
+            customInstructions,
+          });
+
+          if (directData && directData.questions) {
+            setExamData(directData);
+            setActiveTab('paper');
+            return;
+          }
+        } catch (directErr: any) {
+          console.error('Direct fallback also failed:', directErr);
+        }
+      }
       setGenerationError(err.message || '네트워크 통신 중 오류가 발생했습니다.');
     } finally {
       setIsGenerating(false);
