@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
@@ -34,7 +33,9 @@ function getAI(): GoogleGenAI {
   if (!aiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.");
+      throw new Error(
+        "GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Vercel 프로젝트 설정(Settings > Environment Variables) 또는 .env 파일에 GEMINI_API_KEY를 등록해 주세요."
+      );
     }
     aiClient = new GoogleGenAI({
       apiKey,
@@ -318,7 +319,7 @@ app.get("/terms", (req, res) => {
 });
 
 // API: Extract/OCR passage from multimodal images/PDF
-app.post("/api/gemini/extract-passage", async (req, res) => {
+app.post(["/api/gemini/extract-passage", "/gemini/extract-passage"], async (req, res) => {
   try {
     const { images, textHint } = req.body;
     const ai = getAI();
@@ -381,7 +382,7 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
 });
 
 // API: Generate KICE CSAT Question Set
-app.post("/api/gemini/generate-exam", async (req, res) => {
+app.post(["/api/gemini/generate-exam", "/gemini/generate-exam"], async (req, res) => {
   try {
     const { passageText, images, passageCategory, questionConfigs, customInstructions } = req.body;
     const ai = getAI();
@@ -587,7 +588,7 @@ ${configDescriptions}
 });
 
 // API: Regenerate or refine a single question
-app.post("/api/gemini/regenerate-single-question", async (req, res) => {
+app.post(["/api/gemini/regenerate-single-question", "/gemini/regenerate-single-question"], async (req, res) => {
   try {
     const { passageText, questionIndex, existingQuestion, userFeedback, questionConfig } = req.body;
     const ai = getAI();
@@ -683,14 +684,28 @@ ${userFeedback || "평가원 기출 난이도에 맞춰 선지의 매력도를 �
   }
 });
 
+// Health check endpoint
+app.get(["/api/health", "/health"], (req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
 // Vite middleware setup
 async function startServer() {
+  if (process.env.VERCEL) {
+    return;
+  }
+
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (viteErr) {
+      console.warn("Vite middleware setup skipped:", viteErr);
+    }
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -699,11 +714,9 @@ async function startServer() {
     });
   }
 
-  if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`KICE CSAT Korean Exam Generator server running at http://0.0.0.0:${PORT}`);
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`KICE CSAT Korean Exam Generator server running at http://0.0.0.0:${PORT}`);
+  });
 }
 
 startServer();
