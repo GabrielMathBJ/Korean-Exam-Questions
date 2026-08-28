@@ -76,12 +76,31 @@ export default function App() {
   const [customApiKey, setCustomApiKey] = useState<string>('');
 
   useEffect(() => {
-    try {
-      const savedKey = localStorage.getItem('user_gemini_api_key');
-      if (savedKey) setCustomApiKey(savedKey);
-    } catch {
-      // ignore
-    }
+    const syncKey = () => {
+      try {
+        const savedKey = localStorage.getItem('user_gemini_api_key') || '';
+        setCustomApiKey(savedKey);
+      } catch {
+        // ignore
+      }
+    };
+
+    syncKey();
+
+    const handleKeyChange = (e: any) => {
+      if (e?.detail !== undefined) {
+        setCustomApiKey(e.detail);
+      } else {
+        syncKey();
+      }
+    };
+
+    window.addEventListener('geminiApiKeyUpdated', handleKeyChange);
+    window.addEventListener('storage', syncKey);
+    return () => {
+      window.removeEventListener('geminiApiKeyUpdated', handleKeyChange);
+      window.removeEventListener('storage', syncKey);
+    };
   }, []);
 
   // Apply a sample passage
