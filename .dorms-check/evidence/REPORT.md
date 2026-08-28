@@ -24,7 +24,7 @@
 - [v] CORS 설정 — CORS가 임의 Origin을 허용하지 않음(양호)
 - [v] 페이지 제목 — <title> 있음
 - [v] 모바일 viewport — viewport 메타
-- [v] 응답 속도 — 응답 시간 124ms
+- [v] 응답 속도 — 응답 시간 183ms
 - [v] 문서 크기 — 문서 크기 10KB
 - [v] 개인정보처리방침 — 개인정보처리방침 발견(path: /privacy)
 - [v] 이용약관 — 이용약관 발견(path: /terms)
@@ -77,7 +77,7 @@
 ### 참고(검토 권장, 마크 게이트 아님)
 - canonical: canonical 링크
 - 압축: 압축 미표기
-- 헤더 설정 위치: 헤더 설정 파일에서 보안 헤더 설정을 못 찾음(라이브 관측을 우선 신뢰)
+- 헤더 설정 위치: 헤더 설정 발견: content-security-policy, strict-transport-security, x-frame-options, x-content-type-options, referrer-policy, permissions-policy
 
 ## 에듀집 제출·통과 준비(필수기준)
 - 준비 상태: 미충족

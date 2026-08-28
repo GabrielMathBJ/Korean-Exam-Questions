@@ -4,7 +4,7 @@
     "name": "dorms-check",
     "version": "0.1.0"
   },
-  "generatedAt": "2026-08-28T04:39:11.808Z",
+  "generatedAt": "2026-08-28T04:43:28.356Z",
   "app": {
     "name": "국어교과 문항 출제기",
     "url": "https://ais-dev-bad33uy66kjf2supkpa2bw-961439429570.asia-east1.run.app",
@@ -43,7 +43,7 @@
       "evidence": {
         "header": "content-security-policy",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -57,7 +57,7 @@
       "evidence": {
         "header": "strict-transport-security",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -71,7 +71,7 @@
       "evidence": {
         "header": "x-frame-options",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -85,7 +85,7 @@
       "evidence": {
         "header": "x-content-type-options",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -99,7 +99,7 @@
       "evidence": {
         "header": "referrer-policy",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -113,7 +113,7 @@
       "evidence": {
         "header": "permissions-policy",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -337,9 +337,9 @@
       "method": "deterministic",
       "serverVerifiable": true,
       "status": "pass",
-      "observed": "응답 시간 124ms",
+      "observed": "응답 시간 183ms",
       "evidence": {
-        "ms": 124
+        "ms": 183
       }
     },
     {
@@ -472,10 +472,31 @@
       "method": "ai",
       "serverVerifiable": false,
       "status": "info",
-      "observed": "헤더 설정 파일에서 보안 헤더 설정을 못 찾음(라이브 관측을 우선 신뢰)",
+      "observed": "헤더 설정 발견: content-security-policy, strict-transport-security, x-frame-options, x-content-type-options, referrer-policy, permissions-policy",
       "evidence": {
-        "configuredHeaders": {},
-        "filesScanned": []
+        "configuredHeaders": {
+          "content-security-policy": [
+            "vercel.json"
+          ],
+          "strict-transport-security": [
+            "vercel.json"
+          ],
+          "x-frame-options": [
+            "vercel.json"
+          ],
+          "x-content-type-options": [
+            "vercel.json"
+          ],
+          "referrer-policy": [
+            "vercel.json"
+          ],
+          "permissions-policy": [
+            "vercel.json"
+          ]
+        },
+        "filesScanned": [
+          "vercel.json"
+        ]
       }
     },
     {
@@ -625,5 +646,5 @@
     ],
     "note": "서버는 이 항목을 앱 URL 로 독립 재스캔해 대조한다. 불일치 시 발급 거부. 나머지(code.hardcoded-secret 등)는 자기신고로 투명 표기."
   },
-  "manifestSha256": "c0bce9c0e50df66e3424344122718a33dd7e45ab371cd467e3f7d2e0b42ca169"
+  "manifestSha256": "bf186e9ea4ea7a78f783714428ffae18caf727155b6778cdd3c1049e4d1441bf"
 }

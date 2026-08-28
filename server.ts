@@ -12,9 +12,10 @@ const PORT = 3000;
 // Security Headers Middleware
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), browsing-topics=()");
   // Content Security Policy allowing required assets, Google fonts, and inline styles for preview
   res.setHeader(
     "Content-Security-Policy",
@@ -271,6 +272,46 @@ app.get("/privacy", (req, res) => {
     <h2>제5조 (개인정보 보호책임자 및 문의)</h2>
     <p>• 서비스명: 국어교과 문항 출제기 (개발: Gabriel Byeongje Jeon)<br>
        • 문의처: gabriel@senedu.kr</p>
+  </div>
+</body>
+</html>`);
+});
+
+// Public Terms of Service Endpoint
+app.get("/terms", (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>이용약관 - 국어교과 문항 출제기</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc; }
+    .container { background: #ffffff; padding: 32px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    h1 { color: #0f172a; border-bottom: 2px solid #2563eb; padding-bottom: 8px; font-size: 24px; }
+    h2 { color: #1e293b; margin-top: 24px; font-size: 18px; }
+    p, li { font-size: 15px; }
+    .badge { display: inline-block; background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>서비스 이용약관</h1>
+    <span class="badge">KICE 국어과 교육과정 평가도구</span>
+
+    <h2>제1조 (목적)</h2>
+    <p>본 약관은 '국어교과 문항 출제기'(이하 "서비스")가 제공하는 교육용 국어 문항 자동 출제 및 시험지 생성 기능의 이용 조건 및 절차를 규정함을 목적으로 합니다.</p>
+
+    <h2>제2조 (서비스의 제공 및 이용)</h2>
+    <p>1. 본 서비스는 전국의 초·중·고 교원 및 교육 종사자의 수업 연구 및 평가 문항 제작을 지원하기 위해 무료로 제공됩니다.<br>
+       2. 이용자는 입력한 지문 및 생성된 문항을 교육적 목적으로 자유롭게 편집, 인쇄 및 활용할 수 있습니다.</p>
+
+    <h2>제3조 (저작권 및 책임의 한계)</h2>
+    <p>1. 생성된 문항의 검토 및 최종 검증 책임은 출제 교원 본인에게 있습니다.<br>
+       2. 본 서비스는 인공지능(AI) 기술을 기반으로 하므로, 실제 시험 출제 시 교육과정 부합성 및 정답의 무결성을 반드시 검토하시기 바랍니다.</p>
+
+    <h2>제4조 (문의)</h2>
+    <p>서비스와 관련된 오류 제보 및 문의는 gabriel@senedu.kr 로 연락주시기 바랍니다.</p>
   </div>
 </body>
 </html>`);

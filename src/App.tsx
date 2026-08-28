@@ -275,14 +275,32 @@ export default function App() {
         <p className="text-slate-500">
           사실적 이해 · 추론적 이해 · 비판적 이해 · 적용/창의 · 어휘·어법 5대 행동영역 기반 문항 자동화 엔진
         </p>
-        <div className="pt-2 flex items-center justify-center space-x-4">
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
           <button
             onClick={() => setIsPrivacyModalOpen(true)}
-            className="inline-flex items-center space-x-1.5 text-slate-400 hover:text-blue-400 hover:underline transition cursor-pointer py-1 px-2 rounded"
+            className="inline-flex items-center space-x-1.5 hover:text-blue-400 hover:underline transition cursor-pointer py-1 px-1.5 rounded"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-            <span>개인정보 처리방침 및 데이터 보호 안내</span>
+            <span>개인정보 처리방침 안내(팝업)</span>
           </button>
+          <span>•</span>
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-blue-400 hover:underline transition"
+          >
+            개인정보처리방침 전문(새창)
+          </a>
+          <span>•</span>
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-blue-400 hover:underline transition"
+          >
+            이용약관
+          </a>
         </div>
       </footer>
 

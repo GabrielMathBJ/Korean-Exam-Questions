@@ -1,5 +1,5 @@
 {
-  "at": "2026-08-28T04:38:12.196Z",
+  "at": "2026-08-28T04:43:21.763Z",
   "url": "https://ais-dev-bad33uy66kjf2supkpa2bw-961439429570.asia-east1.run.app",
   "results": [
     {
@@ -9,7 +9,7 @@
       "evidence": {
         "header": "content-security-policy",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -19,7 +19,7 @@
       "evidence": {
         "header": "strict-transport-security",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -29,7 +29,7 @@
       "evidence": {
         "header": "x-frame-options",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -39,7 +39,7 @@
       "evidence": {
         "header": "x-content-type-options",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -49,7 +49,7 @@
       "evidence": {
         "header": "referrer-policy",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -59,7 +59,7 @@
       "evidence": {
         "header": "permissions-policy",
         "value": null,
-        "observedAt": "2026-08-28T04:38:11.947Z"
+        "observedAt": "2026-08-28T04:43:21.486Z"
       }
     },
     {
@@ -215,9 +215,9 @@
     {
       "id": "perf.ttfb",
       "status": "pass",
-      "observed": "응답 시간 124ms",
+      "observed": "응답 시간 183ms",
       "evidence": {
-        "ms": 124
+        "ms": 183
       }
     },
     {
@@ -306,10 +306,31 @@
     {
       "id": "code.headers-config",
       "status": "info",
-      "observed": "헤더 설정 파일에서 보안 헤더 설정을 못 찾음(라이브 관측을 우선 신뢰)",
+      "observed": "헤더 설정 발견: content-security-policy, strict-transport-security, x-frame-options, x-content-type-options, referrer-policy, permissions-policy",
       "evidence": {
-        "configuredHeaders": {},
-        "filesScanned": []
+        "configuredHeaders": {
+          "content-security-policy": [
+            "vercel.json"
+          ],
+          "strict-transport-security": [
+            "vercel.json"
+          ],
+          "x-frame-options": [
+            "vercel.json"
+          ],
+          "x-content-type-options": [
+            "vercel.json"
+          ],
+          "referrer-policy": [
+            "vercel.json"
+          ],
+          "permissions-policy": [
+            "vercel.json"
+          ]
+        },
+        "filesScanned": [
+          "vercel.json"
+        ]
       }
     },
     {
@@ -379,7 +400,7 @@
     "url": "https://ais-dev-bad33uy66kjf2supkpa2bw-961439429570.asia-east1.run.app",
     "finalUrl": "https://ais-dev-bad33uy66kjf2supkpa2bw-961439429570.asia-east1.run.app/__cookie_check.html?return_url=https%3A%2F%2Fais-dev-bad33uy66kjf2supkpa2bw-961439429570.asia-east1.run.app%2F",
     "httpStatus": 200,
-    "ttfbMs": 124,
+    "ttfbMs": 183,
     "observedHeaders": [
       "accept-ranges",
       "alt-svc",
@@ -394,6 +415,6 @@
       "server",
       "x-cloud-trace-context"
     ],
-    "scannedAt": "2026-08-28T04:38:12.094Z"
+    "scannedAt": "2026-08-28T04:43:21.651Z"
   }
 }
