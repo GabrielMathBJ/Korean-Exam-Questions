@@ -68,13 +68,30 @@ export async function optimizeImageBase64(
 /**
  * Robust fetch helper that guards against HTML error pages (e.g., 413, 502, 504)
  * and provides clear error messages instead of JSON parse failures.
+ * Also injects user-configured Gemini API Key if available.
  */
 export async function safeFetchJson<T = any>(
   url: string,
   options: RequestInit
 ): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
-    const response = await fetch(url, options);
+    const customKey = typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') : null;
+    
+    // Inject headers
+    const headers = new Headers(options.headers || {});
+    if (!headers.has('Content-Type') && options.body) {
+      headers.set('Content-Type', 'application/json');
+    }
+    if (customKey && customKey.trim()) {
+      headers.set('x-gemini-api-key', customKey.trim());
+    }
+
+    const modifiedOptions: RequestInit = {
+      ...options,
+      headers,
+    };
+
+    const response = await fetch(url, modifiedOptions);
     const contentType = response.headers.get('content-type') || '';
 
     if (!contentType.includes('application/json')) {
@@ -85,6 +102,8 @@ export async function safeFetchJson<T = any>(
         errorSummary = '업로드된 파일 용량이 너무 큽니다. 파일 크기를 줄이거나 페이지 수를 줄여주세요.';
       } else if (response.status === 504 || response.status === 502) {
         errorSummary = 'AI 처리 시간이 초과되었습니다. 지문 분량을 줄이거나 다시 시도해 주세요.';
+      } else if (response.status === 500) {
+        errorSummary = '서버 내부 오류(500)가 발생했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키를 입력해 보시거나 잠시 후 다시 시도해 주세요.';
       } else if (rawText) {
         // Strip HTML tags if any
         const cleanText = rawText.replace(/<[^>]*>?/gm, '').trim().slice(0, 150);

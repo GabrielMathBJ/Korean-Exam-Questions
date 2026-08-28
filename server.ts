@@ -28,16 +28,33 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Lazy getter for Google GenAI client
-let aiClient: GoogleGenAI | null = null;
-function getAI(): GoogleGenAI {
-  if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        "GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Vercel 프로젝트 설정(Settings > Environment Variables) 또는 .env 파일에 GEMINI_API_KEY를 등록해 주세요."
-      );
-    }
-    aiClient = new GoogleGenAI({
+let defaultAiClient: GoogleGenAI | null = null;
+
+function getAI(customApiKey?: string): GoogleGenAI {
+  const apiKey = (customApiKey && typeof customApiKey === "string" && customApiKey.trim().length > 0)
+    ? customApiKey.trim()
+    : process.env.GEMINI_API_KEY?.trim();
+
+  if (!apiKey) {
+    throw new Error(
+      "Gemini API 키가 설정되지 않았습니다. 우측 상단의 [⚙️ API 키 설정]에서 개인 Gemini API 키(AIzaSy...)를 등록해 주세요."
+    );
+  }
+
+  // If custom key is provided, create a fresh client instance for this key
+  if (customApiKey && customApiKey.trim().length > 0) {
+    return new GoogleGenAI({
+      apiKey: customApiKey.trim(),
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    });
+  }
+
+  if (!defaultAiClient) {
+    defaultAiClient = new GoogleGenAI({
       apiKey,
       httpOptions: {
         headers: {
@@ -46,7 +63,7 @@ function getAI(): GoogleGenAI {
       },
     });
   }
-  return aiClient;
+  return defaultAiClient;
 }
 
 // Helper to safely parse JSON from Gemini model output
@@ -102,8 +119,9 @@ async function generateContentWithRetry(
   const modelCandidates = [
     primaryModel,
     "gemini-2.5-flash",
-    "gemini-2.5-pro",
     "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
   ].filter((v, i, a) => a.indexOf(v) === i); // unique
 
   let lastError: any = null;
@@ -122,6 +140,19 @@ async function generateContentWithRetry(
         const errMsg = String(err?.message || "").toLowerCase();
         const errStatus = String(err?.status || "").toUpperCase();
         const errCode = Number(err?.code || (typeof err?.status === "number" ? err.status : 0));
+        
+        // If API key is explicitly invalid, do not waste time retrying other models
+        if (
+          errMsg.includes("api key") ||
+          errMsg.includes("api_key") ||
+          errMsg.includes("unauthenticated") ||
+          errMsg.includes("permission_denied") ||
+          errCode === 401 ||
+          errCode === 403
+        ) {
+          throw new Error("입력하신 Gemini API 키가 유효하지 않거나 권한이 없습니다. 상단 [API 키 설정]에서 올바른 키(AIzaSy...)를 입력해 주세요.");
+        }
+
         const isTemporary =
           errCode === 503 ||
           errCode === 429 ||
@@ -150,7 +181,13 @@ async function generateContentWithRetry(
     }
   }
 
-  throw lastError || new Error("AI 모델 서비스 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.");
+  // Format friendly error messages
+  const finalMsg = String(lastError?.message || "");
+  if (finalMsg.toLowerCase().includes("quota") || finalMsg.includes("RESOURCE_EXHAUSTED")) {
+    throw new Error("Gemini API 호출 한도(Quota)가 초과되었습니다. 잠시 후 다시 시도하시거나 상단 [API 키 설정]에서 개인 API 키를 등록해 주세요.");
+  }
+
+  throw lastError || new Error("Gemini API 호출에 실패했습니다.");
 }
 
 // System prompt embodying Senior KICE CSAT Korean Language Arts Item Developer
@@ -322,7 +359,8 @@ app.get("/terms", (req, res) => {
 app.post(["/api/gemini/extract-passage", "/gemini/extract-passage"], async (req, res) => {
   try {
     const { images, textHint } = req.body;
-    const ai = getAI();
+    const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
+    const ai = getAI(customApiKey);
 
     const parts: any[] = [];
     
@@ -385,7 +423,8 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
 app.post(["/api/gemini/generate-exam", "/gemini/generate-exam"], async (req, res) => {
   try {
     const { passageText, images, passageCategory, questionConfigs, customInstructions } = req.body;
-    const ai = getAI();
+    const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
+    const ai = getAI(customApiKey);
 
     const parts: any[] = [];
 
@@ -591,7 +630,8 @@ ${configDescriptions}
 app.post(["/api/gemini/regenerate-single-question", "/gemini/regenerate-single-question"], async (req, res) => {
   try {
     const { passageText, questionIndex, existingQuestion, userFeedback, questionConfig } = req.body;
-    const ai = getAI();
+    const customApiKey = (req.headers["x-gemini-api-key"] as string) || req.body?.customApiKey;
+    const ai = getAI(customApiKey);
 
     const domain = questionConfig?.behavioralDomain || "factual";
     const isTableMatrix = domain === "table_matrix" || (userFeedback && userFeedback.includes("도표"));

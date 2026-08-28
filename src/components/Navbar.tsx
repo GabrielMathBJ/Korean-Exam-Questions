@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, FileText, CheckCircle2, Award, Edit3, Sparkles, Printer, HelpCircle } from 'lucide-react';
+import { BookOpen, FileText, CheckCircle2, Award, Edit3, Sparkles, Printer, Key, Settings } from 'lucide-react';
 
 interface NavbarProps {
   activeTab: 'generator' | 'paper' | 'explanation' | 'editor';
@@ -7,6 +7,8 @@ interface NavbarProps {
   hasGeneratedExam: boolean;
   onQuickPrint?: () => void;
   questionCount: number;
+  hasCustomApiKey?: boolean;
+  onOpenApiKeyModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -15,6 +17,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   hasGeneratedExam,
   onQuickPrint,
   questionCount,
+  hasCustomApiKey = false,
+  onOpenApiKeyModal,
 }) => {
   return (
     <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md">
@@ -115,18 +119,39 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Action on right */}
-          {hasGeneratedExam && (
-            <div className="hidden md:flex items-center space-x-2">
+          <div className="flex items-center space-x-2">
+            {onOpenApiKeyModal && (
+              <button
+                id="api-key-config-btn"
+                type="button"
+                onClick={onOpenApiKeyModal}
+                className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition border ${
+                  hasCustomApiKey
+                    ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/50'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                }`}
+                title="개인 Gemini API 키 설정"
+              >
+                <Key className={`w-3.5 h-3.5 ${hasCustomApiKey ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <span className="hidden sm:inline">API 키 설정</span>
+                <span className="sm:hidden">API 키</span>
+                {hasCustomApiKey && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
+            )}
+
+            {hasGeneratedExam && (
               <button
                 onClick={onQuickPrint}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs sm:text-sm font-medium transition"
+                className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs sm:text-sm font-medium transition"
                 title="수능 시험지 양식 인쇄 및 PDF 저장"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>시험지 인쇄</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
         </div>
       </div>

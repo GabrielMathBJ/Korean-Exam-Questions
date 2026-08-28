@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, BookOpen, Layers, ArrowRight, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, RefreshCw, AlertCircle, CheckCircle2, BookOpen, Layers, ArrowRight, ShieldCheck, Key } from 'lucide-react';
 import { Navbar } from './components/Navbar';
 import { PassageUploader } from './components/PassageUploader';
 import { QuestionConfigurator } from './components/QuestionConfigurator';
@@ -8,6 +8,7 @@ import { AnswerExplanationView } from './components/AnswerExplanationView';
 import { TeacherEditorView } from './components/TeacherEditorView';
 import { PassageAnalysisCard } from './components/PassageAnalysisCard';
 import { PrivacyModal } from './components/PrivacyModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { SAMPLE_PASSAGES } from './data/samplePassages';
 import { GeneratedExamData, QuestionConfig, SamplePassage } from './types';
 import { safeFetchJson } from './utils/imageOptimizer';
@@ -70,6 +71,19 @@ export default function App() {
   // Privacy Policy modal state
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
+  // API Key modal state
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [customApiKey, setCustomApiKey] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      const savedKey = localStorage.getItem('user_gemini_api_key');
+      if (savedKey) setCustomApiKey(savedKey);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Apply a sample passage
   const handleApplySample = (sample: SamplePassage) => {
     setPassageTitle(sample.title);
@@ -125,6 +139,8 @@ export default function App() {
         setActiveTab={setActiveTab}
         hasGeneratedExam={!!examData}
         questionCount={examData?.questions?.length || 0}
+        hasCustomApiKey={!!customApiKey}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
         onQuickPrint={() => {
           setActiveTab('paper');
           setTimeout(() => window.print(), 300);
@@ -178,6 +194,8 @@ export default function App() {
               uploadedImages={uploadedImages}
               setUploadedImages={setUploadedImages}
               onApplySample={handleApplySample}
+              onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+              hasCustomApiKey={!!customApiKey}
             />
 
             {/* Step 2: Question Item Configurator */}
@@ -191,12 +209,21 @@ export default function App() {
 
             {/* Error Notification */}
             {generationError && (
-              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 sm:p-5 flex items-start space-x-3 text-red-900 text-sm sm:text-base">
-                <AlertCircle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <div className="font-bold text-base">출제 생성 실패 안내</div>
-                  <div className="leading-relaxed">{generationError}</div>
+              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-red-900 text-sm sm:text-base">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold text-base">출제 생성 실패 안내</div>
+                    <div className="leading-relaxed">{generationError}</div>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsApiKeyModalOpen(true)}
+                  className="shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm transition shadow-2xs cursor-pointer"
+                >
+                  🔑 개인 API 키 설정하기
+                </button>
               </div>
             )}
 
@@ -307,6 +334,13 @@ export default function App() {
       <PrivacyModal
         isOpen={isPrivacyModalOpen}
         onClose={() => setIsPrivacyModalOpen(false)}
+      />
+
+      {/* API Key Modal */}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onSave={(key) => setCustomApiKey(key)}
       />
     </div>
   );

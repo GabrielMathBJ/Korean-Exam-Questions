@@ -34,6 +34,8 @@ interface PassageUploaderProps {
     React.SetStateAction<Array<{ mimeType: string; base64: string; previewUrl: string; name: string }>>
   >;
   onApplySample: (sample: SamplePassage) => void;
+  onOpenApiKeyModal?: () => void;
+  hasCustomApiKey?: boolean;
 }
 
 export const PassageUploader: React.FC<PassageUploaderProps> = ({
@@ -48,6 +50,8 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
   uploadedImages,
   setUploadedImages,
   onApplySample,
+  onOpenApiKeyModal,
+  hasCustomApiKey,
 }) => {
   const [activeInputMode, setActiveInputMode] = useState<'text' | 'file' | 'sample'>('text');
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
@@ -509,9 +513,20 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
                 </div>
 
                 {extractError && (
-                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center space-x-2">
-                    <AlertCircle className="w-5 h-5 shrink-0" />
-                    <span>{extractError}</span>
+                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+                      <span>{extractError}</span>
+                    </div>
+                    {onOpenApiKeyModal && (
+                      <button
+                        type="button"
+                        onClick={onOpenApiKeyModal}
+                        className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition shadow-2xs"
+                      >
+                        🔑 개인 API 키 입력하기
+                      </button>
+                    )}
                   </div>
                 )}
 
