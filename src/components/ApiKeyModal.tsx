@@ -104,32 +104,74 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setIsTesting(true);
     setStatusMessage(null);
 
-    try {
-      const res = await fetch('/api/gemini/test-key', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-gemini-api-key': keyToTest,
-        },
-        body: JSON.stringify({ customApiKey: keyToTest }),
-      });
+    // 1. Format guidance check
+    const isStandardGeminiKey = keyToTest.startsWith('AIzaSy');
 
-      const data = await res.json();
-      if (data.success) {
+    try {
+      // Step 1: Try server backend test
+      let serverPassed = false;
+      let serverError = '';
+
+      try {
+        const res = await fetch('/api/gemini/test-key', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-gemini-api-key': keyToTest,
+          },
+          body: JSON.stringify({ customApiKey: keyToTest }),
+        });
+
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data.success) {
+            serverPassed = true;
+          } else {
+            serverError = data.error || '';
+          }
+        }
+      } catch (err: any) {
+        console.warn('Server test-key route failed, testing direct Google API:', err);
+      }
+
+      if (serverPassed) {
         setStatusMessage({
           type: 'success',
           text: '✅ API 키가 유효하며 정상 작동합니다! (Gemini Flash 모델 연결 성공)',
         });
+        return;
+      }
+
+      // Step 2: Direct Google Gemini API test (Zero-failure fallback on Vercel/Static hosting)
+      const googleRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${encodeURIComponent(keyToTest)}`
+      );
+
+      if (googleRes.ok) {
+        setStatusMessage({
+          type: 'success',
+          text: '✅ Google Gemini 서버와 정상 연결되었습니다! (API 키 인증 완료)',
+        });
       } else {
+        const errorData = await googleRes.json().catch(() => null);
+        const googleMsg = errorData?.error?.message || serverError || '유효하지 않은 API 키입니다.';
+        
+        let customHint = '';
+        if (!isStandardGeminiKey) {
+          customHint = ' (💡 안내: Google AI Studio 키는 보통 "AIzaSy..."로 시작합니다)';
+        }
+
         setStatusMessage({
           type: 'error',
-          text: '❌ 키 검증 실패: ' + (data.error || '유효하지 않은 API 키입니다.'),
+          text: `❌ 키 검증 실패: ${googleMsg}${customHint}`,
         });
       }
     } catch (err: any) {
+      console.error('API key verification error:', err);
       setStatusMessage({
         type: 'error',
-        text: '❌ 연결 테스트 오류: ' + (err.message || '서버 응답을 확인하지 못했습니다.'),
+        text: `❌ 연결 확인 실패: 네트워크 상태를 확인하시거나 키가 올바른지 확인해 주세요.${!isStandardGeminiKey ? ' (Google AI Studio 키는 AIzaSy... 형식입니다)' : ''}`,
       });
     } finally {
       setIsTesting(false);
@@ -226,6 +268,15 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {inputKey.trim().length > 5 && !inputKey.trim().startsWith('AIzaSy') && (
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-1.5 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>주의:</strong> Google Gemini API 키는 일반적으로 <code>AIzaSy...</code>로 시작합니다. 올바른 키인지 확인해 주세요.
+                </span>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <button

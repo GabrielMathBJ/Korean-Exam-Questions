@@ -386,7 +386,8 @@ app.post(["/api/gemini/test-key", "/gemini/test-key", "/api/test-key", "/test-ke
     }
   } catch (error: any) {
     console.error("API Key test error:", error);
-    res.status(400).json({ success: false, error: error.message || "유효하지 않은 API 키이거나 권한이 없습니다." });
+    const errMsg = error?.message || "유효하지 않은 API 키이거나 권한이 없습니다.";
+    res.status(200).json({ success: false, error: errMsg });
   }
 });
 
@@ -773,6 +774,24 @@ ${userFeedback || "평가원 기출 난이도에 맞춰 선지의 매력도를 �
 // Health check endpoint
 app.get(["/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
+});
+
+// Fallback for API routes to never return HTML 404
+app.all("/api/*", (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `요청하신 API 경로(${req.originalUrl || req.url})를 찾을 수 없습니다.`,
+  });
+});
+
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Express Error Handler:", err);
+  if (res.headersSent) return next(err);
+  res.status(200).json({
+    success: false,
+    error: err?.message || "서버 처리 중 오류가 발생했습니다.",
+  });
 });
 
 // Vite middleware setup
