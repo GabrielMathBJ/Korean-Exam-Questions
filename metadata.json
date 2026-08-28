@@ -1,0 +1,6 @@
+{
+  "name": "국어교과 문항 출제기",
+  "description": "한국교육과정평가원(KICE) 대학수학능력시험 국어영역 기출 평가 프레임워크 기반 멀티모달 자동 문항 출제 및 시험지 생성기 - 개발자: Gabriel Byeongje Jeon",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

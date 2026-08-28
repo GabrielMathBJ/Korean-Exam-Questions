@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    color: #0f172a;
+    background-color: #f8fafc;
+    line-height: 1.6;
+  }
+}
+
+@layer utilities {
+  @media print {
+    body {
+      background-color: white !important;
+      color: black !important;
+      font-size: 11pt !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    header, .no-print, nav, button {
+      display: none !important;
+    }
+
+    #csat-exam-paper {
+      border: 1.5pt solid black !important;
+      box-shadow: none !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 10mm 12mm !important;
+      page-break-after: always;
+    }
+
+    .break-inside-avoid {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+  }
+}
+

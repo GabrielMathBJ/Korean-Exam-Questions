@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "국어교과 문항 출제기",
+    "url": "https://ais-dev-bad33uy66kjf2supkpa2bw-961439429570.asia-east1.run.app",
+    "stack": "Vite"
+  },
+  "tracks": [
+    "security",
+    "edzip",
+    "protection"
+  ],
+  "edzipCase": null,
+  "teacher": {
+    "dormsHandle": ""
+  },
+  "ownershipConfirmed": true
+}
