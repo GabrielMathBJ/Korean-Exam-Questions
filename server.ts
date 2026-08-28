@@ -9,6 +9,20 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+// Security Headers Middleware
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Content Security Policy allowing required assets, Google fonts, and inline styles for preview
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-ancestors 'self' https:;"
+  );
+  next();
+});
+
 // Body parser middleware with large payload limit for base64 images/pdf
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -209,6 +223,57 @@ const KICE_SYSTEM_PROMPT = `당신은 한국교육과정평가원(KICE) 대학�
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Public Privacy Policy Endpoint for Edzip & Dorms crawlers
+app.get("/privacy", (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>개인정보 처리방침 - 국어교과 문항 출제기</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc; }
+    .container { background: #ffffff; padding: 32px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    h1 { color: #0f172a; border-bottom: 2px solid #2563eb; padding-bottom: 8px; font-size: 24px; }
+    h2 { color: #1e293b; margin-top: 24px; font-size: 18px; }
+    p, li { font-size: 15px; }
+    .badge { display: inline-block; background: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 6px; font-size: 13px; font-weight: bold; }
+    .box { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 16px 0; color: #166534; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>개인정보 처리방침</h1>
+    <span class="badge">에듀집(Edzip) 및 교육데이터 보안 가이드라인 준수</span>
+    
+    <div class="box">
+      <strong>[핵심 고지: 개인정보 무수집·무저장]</strong><br>
+      본 '국어교과 문항 출제기'는 교원을 위한 순수 문항 출제·편집 도구로서 학생 및 이용자의 이름, 학번, 성적, 연락처 등 일체의 개인식별정보를 수집하거나 서버 데이터베이스에 영구 저장하지 않습니다.
+    </div>
+
+    <h2>제1조 (개인정보의 처리 목적)</h2>
+    <p>본 소프트웨어는 한국교육과정평가원 수능 5대 행동영역 기반의 국어영역 문항 생성 및 시험지 출력 목적으로만 작동하며, 개인정보를 수집·이용하지 않습니다.</p>
+
+    <h2>제2조 (처리하는 데이터 항목 및 보관)</h2>
+    <p>1. 출제를 위해 입력된 지문 및 설정값은 브라우저 세션 및 AI 요청 시에만 일시적으로 사용되며, 서버 DB에 저장되지 않고 즉시 파기됩니다.<br>
+       2. 이용자의 시험지 편집 및 PDF 변환은 브라우저(클라이언트) 내부에서 실시간으로 처리됩니다.</p>
+
+    <h2>제3조 (개인정보의 제3자 제공 및 위탁)</h2>
+    <p>본 서비스는 이용자의 개인정보를 제3자에게 제공하지 않으며, 문항 생성을 위한 순수 텍스트 지문 데이터에 한하여 Google Cloud Run 서버를 통해 Gemini API와 암호화 통신(TLS 1.3)을 수행합니다.</p>
+
+    <h2>제4조 (개인정보 안전성 확보 조치)</h2>
+    <p>1. 통신 전 구간 암호화(HTTPS / TLS 1.3) 적용<br>
+       2. API Key의 서버 측 안전 격리 (브라우저 노출 원천 차단)<br>
+       3. 정기적인 dorms-check 보안 점검 및 KICE 수능 규범 준수</p>
+
+    <h2>제5조 (개인정보 보호책임자 및 문의)</h2>
+    <p>• 서비스명: 국어교과 문항 출제기 (개발: Gabriel Byeongje Jeon)<br>
+       • 문의처: gabriel@senedu.kr</p>
+  </div>
+</body>
+</html>`);
 });
 
 // API: Extract/OCR passage from multimodal images/PDF
