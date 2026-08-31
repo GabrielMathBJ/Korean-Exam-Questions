@@ -127,14 +127,12 @@ async function generateContentWithRetry(
     preferredModel?: string;
   }
 ) {
-  const primaryModel = options.preferredModel || "gemini-2.5-flash";
+  const primaryModel = options.preferredModel || "gemini-3.7-flash";
   const modelCandidates = [
     primaryModel,
-    "gemini-2.5-flash",
     "gemini-3.7-flash",
     "gemini-flash-latest",
     "gemini-3.1-flash-lite",
-    "gemini-3.1-pro-preview",
   ].filter((v, i, a) => a.indexOf(v) === i); // unique
 
   let lastError: any = null;
@@ -375,14 +373,14 @@ app.post(["/api/gemini/test-key", "/gemini/test-key", "/api/test-key", "/test-ke
     const ai = getAI(customApiKey);
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.7-flash",
       contents: "ping",
     });
 
     if (response && response.text) {
-      res.json({ success: true, model: "gemini-2.5-flash", message: "API 키가 정상적으로 인증되었습니다." });
+      res.json({ success: true, model: "gemini-3.7-flash", message: "API 키가 정상적으로 인증되었습니다." });
     } else {
-      res.json({ success: true, model: "gemini-2.5-flash" });
+      res.json({ success: true, model: "gemini-3.7-flash" });
     }
   } catch (error: any) {
     console.error("API Key test error:", error);
@@ -430,8 +428,8 @@ ${textHint ? `참고 정보: ${textHint}` : ""}
     parts.push({ text: promptText });
 
     const response = await generateContentWithRetry(ai, {
-      preferredModel: "gemini-2.5-flash",
-      contents: { parts },
+      preferredModel: "gemini-3.7-flash",
+      contents: [{ role: "user", parts }],
       config: {
         systemInstruction: "당신은 한국 수능 국어영역 지문 전문 디지털화 및 OCR 전문가입니다.",
         responseMimeType: "application/json",
@@ -650,8 +648,8 @@ ${configDescriptions}
     parts.push({ text: promptText });
 
     const response = await generateContentWithRetry(ai, {
-      preferredModel: "gemini-2.5-flash",
-      contents: { parts },
+      preferredModel: "gemini-3.7-flash",
+      contents: [{ role: "user", parts }],
       config: {
         systemInstruction: KICE_SYSTEM_PROMPT,
         responseMimeType: "application/json",
@@ -748,7 +746,7 @@ ${userFeedback || "평가원 기출 난이도에 맞춰 선지의 매력도를 �
 `;
 
     const response = await generateContentWithRetry(ai, {
-      preferredModel: "gemini-2.5-flash",
+      preferredModel: "gemini-3.7-flash",
       contents: promptText,
       config: {
         systemInstruction: KICE_SYSTEM_PROMPT,

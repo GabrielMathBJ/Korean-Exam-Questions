@@ -1,12 +1,16 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Initialize PDF.js worker using official CDN matching installed version
-if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+// Initialize PDF.js worker using ESM URL
+if (typeof window !== 'undefined') {
   try {
-    const version = pdfjsLib.version || '4.10.38';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+    const workerUrl = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
   } catch (err) {
-    console.warn('Failed to set pdfjs worker from CDN', err);
+    console.warn('Failed to set local pdfjs worker URL, using CDN fallback:', err);
+    try {
+      const version = pdfjsLib.version || '6.2.108';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+    } catch {}
   }
 }
 
@@ -35,9 +39,10 @@ export async function processPdfFile(
   onProgress?: (current: number, total: number, status: string) => void
 ): Promise<ProcessedPdf> {
   const arrayBuffer = await file.arrayBuffer();
+  const v = pdfjsLib.version || '6.2.108';
   const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(arrayBuffer),
-    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
+    cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${v}/cmaps/`,
     cMapPacked: true,
   });
 

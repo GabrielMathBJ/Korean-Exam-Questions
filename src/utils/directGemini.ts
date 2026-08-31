@@ -104,7 +104,7 @@ ${configDescriptions}
   ]
 }`;
 
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
+  const modelsToTry = ['gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
   let lastError: any = null;
 
   for (const model of modelsToTry) {
@@ -146,4 +146,112 @@ ${configDescriptions}
   }
 
   throw lastError || new Error('직접 Google API를 통한 문항 생성에 실패했습니다.');
+}
+
+export interface ExtractedPassageResult {
+  title?: string;
+  category?: string;
+  subcategory?: string;
+  extractedText: string;
+  summary?: string;
+}
+
+export async function extractPassageDirect(params: {
+  apiKey: string;
+  images: Array<{ mimeType: string; base64: string }>;
+  textHint?: string;
+}): Promise<ExtractedPassageResult> {
+  const { apiKey, images, textHint } = params;
+
+  const parts: any[] = [];
+
+  for (const img of images) {
+    if (!img || !img.base64) continue;
+    const cleanBase64 = img.base64.replace(/^data:.*?;base64,/, '').trim();
+    if (!cleanBase64) continue;
+
+    parts.push({
+      inlineData: {
+        mimeType: img.mimeType || 'image/jpeg',
+        data: cleanBase64,
+      },
+    });
+  }
+
+  const promptText = `제시된 파일(이미지/PDF)에서 국어영역 지문을 정밀하게 텍스트로 추출(OCR)하고 지문 정보를 분석해 주세요.
+${textHint ? `참고 정보: ${textHint}` : ''}
+
+반드시 아래 JSON 형식으로만 응답해 주세요:
+{
+  "title": "지문의 제목 또는 핵심 주제 (예: 헤겔의 미학과 절대정신)",
+  "category": "독서 또는 문학 또는 화법과 작문 또는 언어와 매체",
+  "subcategory": "인문/사회/과학/기술/예술/현대시/고전시가/현대소설/고전소설 등 세부 분류",
+  "extractedText": "지문의 완전한 본문 텍스트 (문단 구분, (가)/(나) 구분, [A], ㉠, ⓐ 기호 등 수능 양식을 최대한 보존하여 정리)",
+  "summary": "지문 핵심 요약 2~3줄"
+}`;
+
+  parts.push({ text: promptText });
+
+  const modelsToTry = ['gemini-3.7-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey.trim())}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        throw new Error(errJson?.error?.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error('OCR 응답 텍스트가 비어있습니다.');
+
+      const cleanJson = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+      let parsed: any;
+      try {
+        parsed = JSON.parse(cleanJson);
+      } catch {
+        parsed = {
+          title: textHint || '수능 국어 지문',
+          extractedText: cleanJson,
+        };
+      }
+
+      if (!parsed.extractedText && rawText.length > 20) {
+        parsed.extractedText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+      }
+
+      if (!parsed.extractedText || parsed.extractedText.trim().length === 0) {
+        throw new Error('추출된 지문 텍스트가 없습니다.');
+      }
+
+      return {
+        title: parsed.title || textHint || '수능 국어 지문',
+        category: parsed.category || '독서',
+        subcategory: parsed.subcategory || '인문·철학',
+        extractedText: parsed.extractedText,
+        summary: parsed.summary || '',
+      };
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Direct OCR model ${model} failed, trying next:`, err);
+    }
+  }
+
+  throw lastError || new Error('직접 Google API를 통한 OCR 텍스트 추출에 실패했습니다.');
 }

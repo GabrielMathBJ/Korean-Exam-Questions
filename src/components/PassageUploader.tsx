@@ -20,6 +20,7 @@ import { SamplePassage } from '../types';
 import { processPdfFile, ProcessedPdf } from '../utils/pdfProcessor';
 import { optimizeImageBase64, safeFetchJson } from '../utils/imageOptimizer';
 import { performBrowserOcr } from '../utils/browserOcr';
+import { extractPassageDirect } from '../utils/directGemini';
 
 interface PassageUploaderProps {
   passageText: string;
@@ -73,17 +74,18 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-      const isImage = file.type.startsWith('image/');
+      const lowerName = file.name.toLowerCase();
+      const isPdf = file.type === 'application/pdf' || lowerName.endsWith('.pdf');
+      const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|bmp|gif|tiff?)$/i.test(lowerName);
 
       if (!isPdf && !isImage) {
-        alert(`${file.name}은(는) 지원되지 않는 형식입니다. PDF 문서 또는 이미지(PNG/JPG) 파일을 업로드해 주세요.`);
+        alert(`${file.name}은(는) 지원되지 않는 형식입니다. PDF 문서 또는 이미지(PNG/JPG/WebP) 파일을 업로드해 주세요.`);
         continue;
       }
 
       if (isPdf) {
         setIsProcessingPdf(true);
-        setPdfProgress({ current: 0, total: 1, status: `${file.name} 로드 중...` });
+        setPdfProgress({ current: 0, total: 1, status: `${file.name} 문서 파싱 중...` });
 
         try {
           const pdfResult = await processPdfFile(file, (curr, total, status) => {
@@ -155,7 +157,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
     setUploadedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // OCR Passage extraction via Gemini AI with Browser OCR Failover
+  // OCR Passage extraction via Gemini AI with Direct Google API + Browser OCR Failover
   const handleExtractTextWithOCR = async () => {
     if (uploadedImages.length === 0) {
       alert('추출할 이미지 또는 PDF 파일을 먼저 업로드해 주세요.');
@@ -166,43 +168,79 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
     setExtractError(null);
     setOcrStatusMessage('AI 모델로 지문 텍스트 분석 중...');
 
+    const customKey = (typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') : null) || '';
+
     try {
       // Send max 6 pages per OCR batch to prevent body-size overflow and timeouts
       const targetImages = uploadedImages.slice(0, 6);
       
+      const textHint = [
+        passageTitle || (lastProcessedPdf ? lastProcessedPdf.fileName : ''),
+        lastProcessedPdf?.hasTextLayer ? lastProcessedPdf.fullExtractedText.slice(0, 1000) : '',
+      ].filter(Boolean).join(' | ');
+
       const payload = {
         images: targetImages.map((img) => ({ mimeType: img.mimeType, base64: img.base64 })),
-        textHint: [
-          passageTitle || (lastProcessedPdf ? lastProcessedPdf.fileName : ''),
-          lastProcessedPdf?.hasTextLayer ? lastProcessedPdf.fullExtractedText.slice(0, 1000) : '',
-        ].filter(Boolean).join(' | '),
+        textHint,
       };
 
-      const result = await safeFetchJson<{
-        title?: string;
-        category?: string;
-        subcategory?: string;
-        extractedText?: string;
-      }>('/api/gemini/extract-passage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // Step 1: Try Server Backend OCR endpoint
+      let ocrSuccess = false;
+      try {
+        const result = await safeFetchJson<{
+          title?: string;
+          category?: string;
+          subcategory?: string;
+          extractedText?: string;
+        }>('/api/gemini/extract-passage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      if (result.success && result.data && result.data.extractedText && result.data.extractedText.trim().length > 10) {
-        if (result.data.title && (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문')) {
-          setPassageTitle(result.data.title);
+        if (result.success && result.data && result.data.extractedText && result.data.extractedText.trim().length > 10) {
+          if (result.data.title && (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문')) {
+            setPassageTitle(result.data.title);
+          }
+          if (result.data.category) setPassageCategory(result.data.category);
+          if (result.data.subcategory) setPassageSubcategory(result.data.subcategory);
+          setPassageText(result.data.extractedText);
+          setActiveInputMode('text');
+          ocrSuccess = true;
+          return;
         }
-        if (result.data.category) setPassageCategory(result.data.category);
-        if (result.data.subcategory) setPassageSubcategory(result.data.subcategory);
-        setPassageText(result.data.extractedText);
-        setActiveInputMode('text');
-        return;
+      } catch (srvErr) {
+        console.warn('Server OCR route failed, attempting failovers:', srvErr);
       }
 
-      // Step 2 Fallback: Check if PDF text layer exists
-      if (lastProcessedPdf?.hasTextLayer && lastProcessedPdf.fullExtractedText.trim().length > 30) {
-        setPassageText(lastProcessedPdf.fullExtractedText);
+      // Step 2: Client-side Direct Google Gemini API OCR (if custom API key is available)
+      if (!ocrSuccess && customKey && customKey.trim()) {
+        try {
+          setOcrStatusMessage('Google Gemini 공식 API 직접 연결로 고화질 OCR 추출 중...');
+          const directResult = await extractPassageDirect({
+            apiKey: customKey.trim(),
+            images: targetImages,
+            textHint,
+          });
+
+          if (directResult && directResult.extractedText && directResult.extractedText.trim().length > 10) {
+            if (directResult.title && (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문')) {
+              setPassageTitle(directResult.title);
+            }
+            if (directResult.category) setPassageCategory(directResult.category);
+            if (directResult.subcategory) setPassageSubcategory(directResult.subcategory);
+            setPassageText(directResult.extractedText);
+            setActiveInputMode('text');
+            return;
+          }
+        } catch (directErr) {
+          console.warn('Direct Gemini OCR failed, attempting PDF layer / Browser OCR:', directErr);
+        }
+      }
+
+      // Step 3 Fallback: Check if PDF text layer or parsed text exists
+      if (lastProcessedPdf?.fullExtractedText && lastProcessedPdf.fullExtractedText.trim().length > 20) {
+        setPassageText(lastProcessedPdf.fullExtractedText.trim());
         if (!passageTitle || passageTitle === '헤겔의 미학과 절대정신' || passageTitle === '수능 국어 지문') {
           setPassageTitle(lastProcessedPdf.fileName.replace(/\.pdf$/i, ''));
         }
@@ -210,7 +248,7 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
         return;
       }
 
-      // Step 3 Fallback: Run high-accuracy in-browser OCR directly on the images
+      // Step 4 Fallback: Run high-accuracy in-browser OCR directly on the images
       setOcrStatusMessage('로컬 브라우저 OCR 엔진으로 텍스트 정밀 추출 중...');
       const ocrResults: string[] = [];
 
@@ -231,10 +269,11 @@ export const PassageUploader: React.FC<PassageUploaderProps> = ({
         }
         setActiveInputMode('text');
       } else {
-        setExtractError(result.error || '이미지에서 텍스트를 추출하지 못했습니다. 상단 [API 키 설정]에서 개인 API 키를 등록하거나 지문을 직접 입력해 주세요.');
+        setExtractError('지문 텍스트를 추출하지 못했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키를 등록하시거나 텍스트를 직접 입력해 주세요.');
       }
     } catch (err: any) {
-      console.warn('OCR error, attempting direct browser OCR:', err);
+      console.warn('OCR general catch error:', err);
+      // Final attempt with local browser OCR
       try {
         const targetImages = uploadedImages.slice(0, 4);
         setOcrStatusMessage('로컬 브라우저 OCR 엔진으로 전환하여 추출 중...');

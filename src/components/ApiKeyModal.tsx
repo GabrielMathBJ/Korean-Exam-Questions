@@ -145,7 +145,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
       // Step 2: Direct Google Gemini API test (Zero-failure fallback on Vercel/Static hosting)
       const googleRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash?key=${encodeURIComponent(keyToTest)}`
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash?key=${encodeURIComponent(keyToTest)}`
       );
 
       if (googleRes.ok) {
