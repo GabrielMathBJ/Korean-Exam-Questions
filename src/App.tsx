@@ -168,7 +168,7 @@ export default function App() {
         }
       }
 
-      setGenerationError(response.error || '문항 생성 중 오류가 발생했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키(AIzaSy...)를 등록해 주세요.');
+      setGenerationError(response.error || '문항 생성 중 오류가 발생했습니다. 상단 [API 키 설정]에서 개인 Gemini API 키를 등록해 주세요.');
     } catch (err: any) {
       // Direct fallback on network exception
       if (storedKey && storedKey.trim() && passageText.trim()) {

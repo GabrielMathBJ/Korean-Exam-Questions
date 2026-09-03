@@ -104,8 +104,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     setIsTesting(true);
     setStatusMessage(null);
 
-    // 1. Format guidance check
-    const isStandardGeminiKey = keyToTest.startsWith('AIzaSy');
+    // 1. Format guidance check (Google AI Studio: AIza..., Google Cloud / Vertex: AQ... etc.)
+    const isRecognizedGoogleKey = keyToTest.startsWith('AIza') || keyToTest.startsWith('AQ') || keyToTest.length >= 20;
 
     try {
       // Step 1: Try server backend test
@@ -158,8 +158,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         const googleMsg = errorData?.error?.message || serverError || '유효하지 않은 API 키입니다.';
         
         let customHint = '';
-        if (!isStandardGeminiKey) {
-          customHint = ' (💡 안내: Google AI Studio 키는 보통 "AIzaSy..."로 시작합니다)';
+        if (!isRecognizedGoogleKey) {
+          customHint = ' (💡 안내: Google API 키는 주로 AIza... 또는 AQ... 등의 형식입니다)';
         }
 
         setStatusMessage({
@@ -171,7 +171,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       console.error('API key verification error:', err);
       setStatusMessage({
         type: 'error',
-        text: `❌ 연결 확인 실패: 네트워크 상태를 확인하시거나 키가 올바른지 확인해 주세요.${!isStandardGeminiKey ? ' (Google AI Studio 키는 AIzaSy... 형식입니다)' : ''}`,
+        text: `❌ 연결 확인 실패: 네트워크 상태를 확인하시거나 키가 올바른지 확인해 주세요.${!isRecognizedGoogleKey ? ' (Google API 키는 AIza... 또는 AQ... 형식입니다)' : ''}`,
       });
     } finally {
       setIsTesting(false);
@@ -230,7 +230,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label htmlFor="gemini-api-key-input" className="block text-xs font-bold text-slate-800">
-                Gemini API Key (AIzaSy...)
+                Gemini API Key (Google AI Studio / Cloud)
               </label>
               {hasCurrentStoredKey && (
                 <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
@@ -254,7 +254,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                     handleSave();
                   }
                 }}
-                placeholder="AIzaSy... 형식의 API 키를 입력하세요"
+                placeholder="Google Gemini API 키 (AIzaSy..., AQ... 등)를 입력하세요"
                 autoComplete="off"
                 spellCheck="false"
                 className="w-full pl-3.5 pr-10 py-2.5 text-xs sm:text-sm font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 text-slate-900"
@@ -269,11 +269,15 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               </button>
             </div>
 
-            {inputKey.trim().length > 5 && !inputKey.trim().startsWith('AIzaSy') && (
-              <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-1.5 animate-fadeIn">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            {/* Standard keys often start with AIza... or AQ...; do not warn if it starts with either or is verified */}
+            {inputKey.trim().length > 5 &&
+              !inputKey.trim().startsWith('AIza') &&
+              !inputKey.trim().startsWith('AQ') &&
+              statusMessage?.type !== 'success' && (
+              <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-start gap-1.5 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>주의:</strong> Google Gemini API 키는 일반적으로 <code>AIzaSy...</code>로 시작합니다. 올바른 키인지 확인해 주세요.
+                  <strong>안내:</strong> Google Gemini API 키는 주로 <code>AIza...</code> 또는 <code>AQ...</code> 형식으로 시작합니다. 아래 <strong>[연결 상태 테스트]</strong> 버튼을 눌러 정상 작동 여부를 확인하실 수 있습니다.
                 </span>
               </div>
             )}

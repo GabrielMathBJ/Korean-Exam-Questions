@@ -49,7 +49,7 @@ function getAI(customApiKey?: string): GoogleGenAI {
 
   if (!apiKey) {
     throw new Error(
-      "Gemini API 키가 설정되지 않았습니다. 우측 상단의 [⚙️ API 키 설정]에서 개인 Gemini API 키(AIzaSy...)를 등록해 주세요."
+      "Gemini API 키가 설정되지 않았습니다. 우측 상단의 [⚙️ API 키 설정]에서 개인 Gemini API 키를 등록해 주세요."
     );
   }
 
@@ -161,7 +161,7 @@ async function generateContentWithRetry(
           errCode === 401 ||
           errCode === 403
         ) {
-          throw new Error("입력하신 Gemini API 키가 유효하지 않거나 권한이 없습니다. 상단 [API 키 설정]에서 올바른 키(AIzaSy...)를 입력해 주세요.");
+          throw new Error("입력하신 Gemini API 키가 유효하지 않거나 권한이 없습니다. 상단 [API 키 설정]에서 올바른 키를 입력해 주세요.");
         }
 
         const isTemporary =
